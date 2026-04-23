@@ -1,0 +1,339 @@
+<!doctype html>
+<html lang="<%= locale %>">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title><%= pageTitle %></title>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-slate-100 text-slate-900">
+  <div class="mx-auto flex h-screen max-w-[1600px] flex-col p-4">
+    <header class="mb-4 flex items-center justify-between gap-3">
+      <h1 class="text-2xl font-semibold"><%= appTitle %></h1>
+      <div class="flex flex-wrap items-center gap-3 text-sm text-slate-600">
+        <form method="get" action="/" class="flex items-center gap-2">
+          <% if (selectedMail) { %>
+            <input type="hidden" name="mail" value="<%= selectedMail.id %>" />
+          <% } %>
+          <input type="hidden" name="mode" value="<%= mode %>" />
+          <input type="hidden" name="viewport" value="<%= viewport %>" />
+          <input type="hidden" name="htmlView" value="<%= htmlView %>" />
+          <label class="flex items-center gap-2">
+            <span><%= t('languageLabel') %></span>
+            <select name="lang" class="rounded-lg border border-slate-300 px-2 py-1">
+              <option value="auto" <%= selectedLanguage === 'auto' ? 'selected' : '' %>><%= t('languageAuto') %></option>
+              <option value="de" <%= selectedLanguage === 'de' ? 'selected' : '' %>><%= t('languageGerman') %></option>
+              <option value="en" <%= selectedLanguage === 'en' ? 'selected' : '' %>><%= t('languageEnglish') %></option>
+            </select>
+          </label>
+        </form>
+        <div><%= t('retentionLabel') %>: <%= retentionDays %> <%= t('days') %> · <a class="text-indigo-600 hover:underline" href="/reload?lang=<%= encodeURIComponent(selectedLanguage) %>"><%= t('reloadMails') %></a></div>
+      </div>
+    </header>
+    <div class="grid min-h-0 flex-1 grid-cols-1 gap-4 lg:grid-cols-[340px_minmax(0,1fr)]">
+      <aside class="min-h-0 overflow-y-auto rounded-2xl border border-slate-200 bg-slate-50 p-3">
+        <h2 class="mb-3 text-sm font-semibold uppercase tracking-wide text-slate-600"><%= t('sidebarTitle') %></h2>
+        <div class="space-y-2">
+          <% if (mails.length) { %>
+            <% for (const mail of mails) { %>
+              <a href="/?mail=<%= encodeURIComponent(mail.id) %>&lang=<%= encodeURIComponent(selectedLanguage) %>" class="block rounded-xl border p-3 transition <%= selectedMail && selectedMail.id === mail.id ? 'border-indigo-200 bg-indigo-50' : 'border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50' %>">
+                <div class="mb-1 flex items-start justify-between gap-2">
+                  <p class="truncate text-sm font-semibold text-slate-800"><%= mail.subject || t('noSubject') %></p>
+                  <% if (mail.attachmentCount > 0) { %>
+                    <span role="img" aria-label="<%= t('mailHasAttachments') %>" title="<%= t('mailHasAttachments') %>" class="text-slate-500">📎</span>
+                  <% } %>
+                </div>
+                <p class="truncate text-xs text-slate-600"><%= mail.to || t('noRecipient') %></p>
+                <p class="mt-1 text-xs text-slate-500"><%= formatDate(mail.receivedAt, locale) %></p>
+              </a>
+            <% } %>
+          <% } else { %>
+            <div class="rounded-xl border border-dashed border-slate-300 bg-white p-4 text-sm text-slate-500"><%= t('noMails') %></div>
+          <% } %>
+        </div>
+      </aside>
+      <main class="min-h-0 flex flex-col overflow-hidden">
+        <div class="mb-3 rounded-2xl border border-slate-200 bg-white p-3 shadow-sm">
+          <div class="flex flex-wrap items-center gap-3 text-sm">
+            <form method="get" action="/" class="flex flex-wrap items-center gap-3">
+              <% if (selectedMail) { %>
+                <input type="hidden" name="mail" value="<%= selectedMail.id %>" />
+              <% } %>
+              <input type="hidden" name="htmlView" value="<%= htmlView %>" />
+              <input type="hidden" name="lang" value="<%= selectedLanguage %>" />
+              <label class="flex items-center gap-2">
+                <span class="text-slate-600"><%= t('viewLabel') %></span>
+                <select name="mode" class="rounded-lg border border-slate-300 px-2 py-1">
+                  <option value="html" <%= mode === 'html' ? 'selected' : '' %> <%= selectedMail && !hasHtml ? 'disabled' : '' %>><%= t('html') %></option>
+                  <option value="text" <%= mode === 'text' ? 'selected' : '' %> <%= selectedMail && !hasText ? 'disabled' : '' %>><%= t('text') %></option>
+                  <option value="split" <%= mode === 'split' ? 'selected' : '' %> <%= selectedMail && !(hasHtml && hasText) ? 'disabled' : '' %>><%= t('split') %></option>
+                  <option value="headers" <%= mode === 'headers' ? 'selected' : '' %>><%= t('headersOnly') %></option>
+                </select>
+              </label>
+              <label class="flex items-center gap-2">
+                <span class="text-slate-600"><%= t('viewportLabel') %></span>
+                <select name="viewport" class="rounded-lg border border-slate-300 px-2 py-1">
+                  <option value="pc" <%= viewport === 'pc' ? 'selected' : '' %>><%= t('pc') %></option>
+                  <option value="laptop" <%= viewport === 'laptop' ? 'selected' : '' %>><%= t('laptop') %></option>
+                  <option value="tablet" <%= viewport === 'tablet' ? 'selected' : '' %>><%= t('tablet') %></option>
+                  <option value="handy" <%= viewport === 'handy' ? 'selected' : '' %>><%= t('phone') %></option>
+                </select>
+              </label>
+            </form>
+            <% if (selectedMail) { %>
+              <a class="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-slate-300 text-slate-700 hover:bg-slate-50" href="/mail/<%= selectedMail.id %>/download?lang=<%= encodeURIComponent(selectedLanguage) %>" aria-label="<%= t('downloadMail') %>" title="<%= t('downloadMail') %>">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M12 3v12"></path>
+                  <path d="m7 10 5 5 5-5"></path>
+                  <path d="M5 21h14"></path>
+                </svg>
+              </a>
+              <form method="post" action="/mail/<%= selectedMail.id %>/delete?lang=<%= encodeURIComponent(selectedLanguage) %>">
+                <input type="hidden" name="csrf" value="<%= csrfToken %>" />
+                <button type="submit" class="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-rose-300 text-rose-700 hover:bg-rose-50" aria-label="<%= t('deleteMail') %>" title="<%= t('deleteMail') %>">
+                  <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M3 6h18"></path>
+                    <path d="M8 6V4h8v2"></path>
+                    <path d="M19 6l-1 14H6L5 6"></path>
+                    <path d="M10 11v6"></path>
+                    <path d="M14 11v6"></path>
+                  </svg>
+                </button>
+              </form>
+            <% } %>
+          </div>
+        </div>
+        <div class="min-h-0 flex-1 overflow-y-auto">
+          <div class="<%= isDesktopViewport ? 'h-full' : '' %>">
+            <% if (!selectedMail) { %>
+              <div class="rounded-xl border border-dashed border-slate-300 bg-white p-8 text-center text-slate-500"><%= t('selectMailPrompt') %></div>
+            <% } else { %>
+              <div class="flex h-full min-h-0 flex-col rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+                <div class="space-y-2 border-b border-slate-200 pb-4">
+                  <h2 class="text-xl font-semibold text-slate-900"><%= selectedMail.subject || t('noSubject') %></h2>
+                  <p class="text-sm text-slate-700"><span class="font-semibold"><%= t('recipient') %></span> <%= selectedMail.to || '-' %></p>
+                  <p class="text-sm text-slate-700"><span class="font-semibold"><%= t('ccRecipient') %></span> <%= selectedMail.cc || '-' %></p>
+                  <p class="text-sm text-slate-700"><span class="font-semibold"><%= t('bccRecipient') %></span> <%= selectedMail.bcc || '-' %></p>
+                  <p class="text-sm text-slate-700"><span class="font-semibold"><%= t('from') %></span> <%= selectedMail.from || '-' %></p>
+                  <p class="text-sm text-slate-700"><span class="font-semibold"><%= t('dateTime') %></span> <%= formatDate(selectedMail.receivedAt, locale) %></p>
+                  <div>
+                    <p class="mb-1 text-sm font-semibold text-slate-700"><%= t('attachments') %></p>
+                    <% if (selectedMail.attachments.length) { %>
+                      <ul class="space-y-1">
+                        <% for (const [index, att] of selectedMail.attachments.entries()) { %>
+                          <li class="text-sm text-slate-700"><a class="text-indigo-600 hover:underline" href="/mail/<%= selectedMail.id %>/attachment/<%= index %>?lang=<%= encodeURIComponent(selectedLanguage) %>"><%= att.filename %></a> <span class="text-slate-500">(<%= att.size %> Bytes)</span></li>
+                        <% } %>
+                      </ul>
+                    <% } else { %>
+                      <p class="text-sm text-slate-500"><%= t('noAttachments') %></p>
+                    <% } %>
+                  </div>
+                </div>
+                <div class="min-h-0 flex-1 pt-4">
+                  <% if (mode === 'headers') { %>
+                    <div class="<%= isDesktopViewport ? 'flex h-full min-h-0 flex-col' : '' %>">
+                      <h3 class="mb-2 text-lg font-semibold text-slate-900"><%= t('headers') %></h3>
+                      <% if (!hasBodyContent) { %>
+                        <div class="mb-3 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800"><%= t('noBodyContent') %></div>
+                      <% } %>
+                      <ul class="text-sm text-slate-700">
+                        <% if (selectedMail.headers.length) { %>
+                          <% for (const header of selectedMail.headers) { %>
+                            <li class="break-all py-1"><strong><%= header.key %>:</strong> <%= header.value %></li>
+                          <% } %>
+                        <% } else { %>
+                          <li><%= t('noHeaders') %></li>
+                        <% } %>
+                      </ul>
+                    </div>
+                  <% } else if (mode === 'split') { %>
+                    <h3 class="mb-2 text-lg font-semibold text-slate-900"><%= t('split') %></h3>
+                    <div class="flex flex-wrap items-start gap-3 <%= !isDesktopViewport ? 'justify-center' : '' %>">
+                      <div class="<%= splitPaneClass %>">
+                        <div class="<%= isDesktopViewport ? 'flex h-full min-h-0 flex-col' : '' %>">
+                          <div class="mb-1 flex items-center justify-between gap-3">
+                            <p class="text-sm font-semibold text-slate-700"><%= t('html') %></p>
+                            <a class="text-sm text-indigo-600 hover:underline" href="<%= buildUrlWithParams({ htmlView: htmlView !== 'source' ? 'source' : 'rendered' }) %>"><%= htmlView !== 'source' ? t('showSource') : t('showRendered') %></a>
+                          </div>
+                          <% if (htmlView === 'source') { %>
+                            <pre class="<%= isDesktopViewport ? 'min-h-0 flex-1 overflow-auto' : 'min-h-40' %> whitespace-pre-wrap rounded-lg bg-slate-50 p-3 text-sm text-slate-800"><%= selectedMail.html || '' %></pre>
+                          <% } else { %>
+                             <iframe sandbox="allow-same-origin" class="mail-html-frame <%= isDesktopViewport ? 'min-h-0 flex-1' : 'min-h-40' %> w-full rounded-lg border border-slate-200 bg-white" srcdoc="<%= selectedMail.html || '' %>"></iframe>
+                          <% } %>
+                        </div>
+                      </div>
+                      <div class="<%= splitPaneClass %>">
+                        <div class="<%= isDesktopViewport ? 'flex h-full min-h-0 flex-col' : '' %>">
+                          <p class="mb-1 text-sm font-semibold text-slate-700"><%= t('text') %></p>
+                          <pre class="<%= isDesktopViewport ? 'min-h-0 flex-1 overflow-auto' : 'min-h-40' %> whitespace-pre-wrap rounded-lg bg-slate-50 p-3 text-sm text-slate-800"><%= selectedMail.text || '' %></pre>
+                        </div>
+                      </div>
+                    </div>
+                  <% } else { %>
+                    <div class="<%= viewportClass %> <%= isDesktopViewport ? 'h-full' : 'mx-auto' %>">
+                      <% if (mode === 'html') { %>
+                        <div class="<%= isDesktopViewport ? 'flex h-full min-h-0 flex-col' : '' %>">
+                          <div class="mb-1 flex items-center justify-between gap-3">
+                            <p class="text-sm font-semibold text-slate-700"><%= t('html') %></p>
+                            <a class="text-sm text-indigo-600 hover:underline" href="<%= buildUrlWithParams({ htmlView: htmlView !== 'source' ? 'source' : 'rendered' }) %>"><%= htmlView !== 'source' ? t('showSource') : t('showRendered') %></a>
+                          </div>
+                          <% if (htmlView === 'source') { %>
+                            <pre class="<%= isDesktopViewport ? 'min-h-0 flex-1 overflow-auto' : 'min-h-40' %> whitespace-pre-wrap rounded-lg bg-slate-50 p-3 text-sm text-slate-800"><%= selectedMail.html || '' %></pre>
+                          <% } else { %>
+                             <iframe sandbox="allow-same-origin" class="mail-html-frame <%= isDesktopViewport ? 'min-h-0 flex-1' : 'min-h-40' %> w-full rounded-lg border border-slate-200 bg-white" srcdoc="<%= selectedMail.html || '' %>"></iframe>
+                          <% } %>
+                        </div>
+                      <% } else { %>
+                        <div class="<%= isDesktopViewport ? 'flex h-full min-h-0 flex-col' : '' %>">
+                          <p class="mb-1 text-sm font-semibold text-slate-700"><%= t('text') %></p>
+                          <pre class="<%= isDesktopViewport ? 'min-h-0 flex-1 overflow-auto' : 'min-h-40' %> whitespace-pre-wrap rounded-lg bg-slate-50 p-3 text-sm text-slate-800"><%= selectedMail.text || '' %></pre>
+                        </div>
+                      <% } %>
+                    </div>
+                  <% } %>
+                </div>
+              </div>
+            <% } %>
+          </div>
+        </div>
+      </main>
+    </div>
+    <footer class="mt-4 flex flex-wrap items-center justify-center gap-x-6 gap-y-2 border-t border-slate-200 pt-3 text-xs text-slate-600">
+      <span>Version: <%= appVersion %></span>
+      <span>Copyright ©  <a class="text-indigo-600 hover:underline" href="<%= projectRepositoryUrl %>" target="_blank" rel="noopener noreferrer"><%= projectName %></a></span>
+    </footer>
+  </div>
+  <div id="link-modal-backdrop" role="dialog" aria-modal="true" aria-hidden="true" aria-labelledby="link-modal-title" class="fixed inset-0 z-50 hidden items-center justify-center bg-slate-900/60 p-4">
+    <div role="document" class="w-full max-w-2xl rounded-xl bg-white p-4 shadow-xl">
+      <p id="link-modal-title" class="mb-2 text-sm font-semibold text-slate-900"><%= t('openLinkQuestion') %></p>
+      <p id="link-modal-url" class="mb-4 break-all rounded-lg bg-slate-50 p-3 text-sm text-slate-700"></p>
+      <div class="flex justify-end gap-2">
+        <button id="link-modal-cancel" type="button" class="rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-700 hover:bg-slate-50"><%= t('cancel') %></button>
+        <button id="link-modal-open" type="button" class="rounded-lg bg-indigo-600 px-3 py-2 text-sm text-white hover:bg-indigo-700"><%= t('open') %></button>
+      </div>
+    </div>
+  </div>
+  <script>
+    (() => {
+      let lastState = { count: <%= mails.length %>, latestId: <%- JSON.stringify(mails[0]?.id || null) %> };
+      let pendingLinkUrl = '';
+      let linkModalPreviousFocus = null;
+      const forms = document.querySelectorAll('form[method="get"][action="/"]');
+      const linkModalBackdrop = document.getElementById('link-modal-backdrop');
+      const linkModalUrl = document.getElementById('link-modal-url');
+      const linkModalOpen = document.getElementById('link-modal-open');
+      const linkModalCancel = document.getElementById('link-modal-cancel');
+
+      function closeLinkModal() {
+        pendingLinkUrl = '';
+        if (linkModalUrl) linkModalUrl.textContent = '';
+        linkModalBackdrop?.setAttribute('aria-hidden', 'true');
+        linkModalBackdrop?.classList.remove('flex');
+        linkModalBackdrop?.classList.add('hidden');
+        if (linkModalPreviousFocus && typeof linkModalPreviousFocus.focus === 'function') {
+          linkModalPreviousFocus.focus();
+        }
+        linkModalPreviousFocus = null;
+      }
+
+      function openLinkModal(url) {
+        pendingLinkUrl = url;
+        linkModalPreviousFocus = document.activeElement;
+        if (linkModalUrl) linkModalUrl.textContent = url;
+        linkModalBackdrop?.setAttribute('aria-hidden', 'false');
+        linkModalBackdrop?.classList.remove('hidden');
+        linkModalBackdrop?.classList.add('flex');
+        linkModalOpen?.focus();
+      }
+
+      function handleMailLinkClick(event) {
+        const link = event.target.closest('a[href]');
+        if (!link) return;
+        event.preventDefault();
+        openLinkModal(link.href);
+      }
+
+      function bindMailIframeLinkHandler(frame) {
+        function attachHandler() {
+          let documentRef = null;
+          try {
+            documentRef = frame.contentDocument || frame.contentWindow?.document;
+          } catch (error) {
+            console.warn('Link modal: could not access iframe content', error);
+            return;
+          }
+
+          if (!documentRef?.documentElement || documentRef.documentElement.dataset.linkModalBound === '1') return;
+          documentRef.documentElement.dataset.linkModalBound = '1';
+          documentRef.addEventListener('click', handleMailLinkClick);
+        }
+
+        frame.addEventListener('load', attachHandler);
+        attachHandler();
+      }
+
+      if (linkModalBackdrop && linkModalOpen && linkModalCancel) {
+        linkModalOpen.addEventListener('click', () => {
+          if (!pendingLinkUrl) return;
+          window.open(pendingLinkUrl, '_blank', 'noopener,noreferrer');
+          closeLinkModal();
+        });
+        linkModalCancel.addEventListener('click', closeLinkModal);
+        linkModalBackdrop.addEventListener('click', (event) => {
+          if (event.target === linkModalBackdrop) closeLinkModal();
+        });
+        linkModalBackdrop.addEventListener('keydown', (event) => {
+          if (event.key === 'Escape') {
+            event.preventDefault();
+            closeLinkModal();
+            return;
+          }
+
+          if (event.key !== 'Tab') return;
+          if (!pendingLinkUrl) return;
+
+          const focusable = [linkModalCancel, linkModalOpen].filter(Boolean);
+          if (!focusable.length) return;
+          const currentIndex = focusable.indexOf(document.activeElement);
+          const step = event.shiftKey ? -1 : 1;
+          const nextIndex = currentIndex < 0
+            ? 0
+            : (currentIndex + step + focusable.length) % focusable.length;
+          event.preventDefault();
+          focusable[nextIndex].focus();
+        });
+      }
+
+      const mailHtmlFrames = document.querySelectorAll('iframe.mail-html-frame');
+      for (const frame of mailHtmlFrames) {
+        bindMailIframeLinkHandler(frame);
+      }
+
+      for (const form of forms) {
+        const selects = form.querySelectorAll('select');
+        for (const select of selects) {
+          select.addEventListener('change', () => form.submit());
+        }
+      }
+
+      async function checkForNewMail() {
+        try {
+          const response = await fetch('/status', { headers: { 'Accept': 'application/json' } });
+          if (!response.ok) return;
+          const current = await response.json();
+          const changed = current.count !== lastState.count || current.latestId !== lastState.latestId;
+          if (changed) {
+            window.location.reload();
+            return;
+          }
+          lastState = current;
+        } catch (error) {
+          console.warn('Mail polling failed:', error);
+        }
+      }
+
+      setInterval(checkForNewMail, <%= safePollIntervalMs %>);
+    })();
+  </script>
+</body>
+</html>

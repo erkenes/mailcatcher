@@ -1,0 +1,18 @@
+{
+  "name": "@erkenes/mailcatcher",
+  "version": "1.0.0",
+  "description": "Node.js mailcatcher with a modern, simple web UI",
+  "main": "src/index.js",
+  "type": "commonjs",
+  "scripts": {
+    "start": "node src/index.js",
+    "test": "node --test",
+    "reload": "node src/reload.js"
+  },
+  "dependencies": {
+    "ejs": "^5.0.2",
+    "express": "5.2.1",
+    "mailparser": "3.9.8",
+    "smtp-server": "3.18.4"
+  }
+}

@@ -1,0 +1,92 @@
+name: Build new docker image
+run-name: Building images for version ${{ github.ref_name }} by @${{ github.actor }}
+
+on:
+  push:
+    tags: ['*.*.*']
+  workflow_dispatch:
+
+jobs:
+  prepare:
+    runs-on: ubuntu-latest
+    outputs:
+      short_sha: ${{ steps.vars.outputs.short_sha }}
+    steps:
+      - uses: actions/checkout@v6
+      - id: vars
+        run: echo "short_sha=sha-$(git rev-parse --short HEAD)" >> "$GITHUB_OUTPUT"
+
+  build:
+    needs: [prepare]
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Log into github registry Docker Hub
+        uses: docker/login-action@4907a6ddec9925e35a0a9e82d7399ccc52663121
+        with:
+          username: ${{ secrets.DOCKER_HUB_USERNAME }}
+          password: ${{ secrets.DOCKER_HUB_TOKEN }}
+
+      - name: Log into github registry ghcr.io
+        uses: docker/login-action@4907a6ddec9925e35a0a9e82d7399ccc52663121
+        with:
+          registry: ghcr.io
+          username: ${{ secrets.GHCR_USERNAME }}
+          password: ${{ secrets.GHCR_TOKEN }}
+
+      - name: Setup Docker buildx
+        uses: docker/setup-buildx-action@4d04d5d9486b7bd6fa91e7baf45bbb4f8b9deedd
+
+      - name: Extract metadata for Docker
+        id: meta
+        uses: docker/metadata-action@030e881283bb7a6894de51c315a6bfe6a94e05cf
+        with:
+          images: |
+            erkenes/mailcatcher
+            ghcr.io/erkenes/mailcatcher
+          flavor: |
+            latest=${{ github.ref_type == 'tag'}}
+          tags: |
+            type=semver,pattern={{version}}
+            type=sha,format=short,prefix=sha-
+
+      - name: Build Docker Image
+        id: build
+        uses: docker/build-push-action@bcafcacb16a39f128d818304e6c9c0c18556b85f
+        with:
+          context: .
+          file: Dockerfile
+          push: false
+          load: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+
+      - name: Scan for vulnerabilities
+        if: ${{ vars.BUILD_DO_VUL_SCAN == 'true' }}
+        uses: crazy-max/ghaction-container-scan@v4
+        with:
+          image: erkenes/mailcatcher:${{ needs.prepare.outputs.short_sha }}
+          dockerfile: Dockerfile
+          annotations: true
+          severity_threshold: CRITICAL
+        env:
+          TRIVY_TIMEOUT: 10m
+          TRIVY_SCANNERS: 'vuln'
+
+      - name: Push Docker Image to Docker Hub
+        id: push
+        uses: docker/build-push-action@bcafcacb16a39f128d818304e6c9c0c18556b85f
+        with:
+          context: .
+          file: Dockerfile
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          sbom: false
+          provenance: false

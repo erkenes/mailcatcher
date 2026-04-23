@@ -1,0 +1,28 @@
+services:
+  mailcatcher:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: mailcatcher
+    container_name: mailcatcher
+    restart: unless-stopped
+    ports:
+      - "${SMTP_PORT:-2525}:2525"
+      - "${WEB_PORT:-3000}:3000"
+    networks:
+      - mailcatcher
+    volumes:
+      - mail-data:/data/mails
+    environment:
+      SMTP_PORT: 2525
+      WEB_PORT: 3000
+      MAIL_RETENTION_DAYS: ${MAIL_RETENTION_DAYS:-7}
+      MAIL_DATA_DIR: /data/mails
+
+volumes:
+  mail-data:
+
+networks:
+  mailcatcher:
+    name: mailcatcher
+    driver: bridge
