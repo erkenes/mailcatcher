@@ -4,6 +4,10 @@ FROM dhi.io/node:24-dev AS deps
 WORKDIR /app
 
 COPY package.json package-lock.json ./
+RUN mkdir -p /data/mails
+
+RUN chown -R node:node /app
+RUN chown -R node:node /data/mails
 
 RUN npm ci --omit=dev
 
@@ -14,6 +18,7 @@ WORKDIR /app
 
 # Copy dependency tree from previous stage
 COPY --from=deps /app/node_modules ./node_modules
+COPY --chown=node:node --from=deps /data/mails /data/mails
 
 # Copy application source
 COPY src ./src
