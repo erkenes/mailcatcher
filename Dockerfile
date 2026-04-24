@@ -1,5 +1,5 @@
 # ── Stage 1: install production dependencies ─────────────────────────────────
-FROM node:24-alpine AS deps
+FROM dhi.io/node:24-dev AS deps
 
 WORKDIR /app
 
@@ -8,7 +8,7 @@ COPY package.json package-lock.json ./
 RUN npm ci --omit=dev
 
 # ── Stage 2: production image ─────────────────────────────────────────────────
-FROM node:20-alpine
+FROM dhi.io/node:24
 
 WORKDIR /app
 
@@ -18,13 +18,6 @@ COPY --from=deps /app/node_modules ./node_modules
 # Copy application source
 COPY src ./src
 COPY package.json ./
-
-# Create a non-root user and own the workdir
-RUN addgroup -S mailcatcher && adduser -S -G mailcatcher mailcatcher \
-    && mkdir -p /data/mails \
-    && chown -R mailcatcher:mailcatcher /app /data
-
-USER mailcatcher
 
 ENV SMTP_PORT=2525 \
     WEB_PORT=3000 \
