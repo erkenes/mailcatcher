@@ -28,6 +28,10 @@
           </label>
         </form>
         <div><%= t('retentionLabel') %>: <%= retentionDays %> <%= t('days') %> · <a class="text-indigo-600 hover:underline" href="/reload?lang=<%= encodeURIComponent(selectedLanguage) %>"><%= t('reloadMails') %></a></div>
+        <form id="delete-all-form" method="post" action="/mail/delete-all?lang=<%= encodeURIComponent(selectedLanguage) %>">
+          <input type="hidden" name="csrf" value="<%= csrfToken %>" />
+          <button id="delete-all-button" type="button" class="rounded-lg border border-rose-300 px-3 py-1 text-sm text-rose-700 hover:bg-rose-50" aria-label="<%= t('deleteAllMails') %>" title="<%= t('deleteAllMails') %>"><%= t('deleteAllMails') %></button>
+        </form>
       </div>
     </header>
     <div class="grid min-h-0 flex-1 grid-cols-1 gap-4 lg:grid-cols-[340px_minmax(0,1fr)]">
@@ -213,16 +217,31 @@
       </div>
     </div>
   </div>
+  <div id="delete-all-modal-backdrop" role="dialog" aria-modal="true" aria-hidden="true" aria-labelledby="delete-all-modal-title" class="fixed inset-0 z-50 hidden items-center justify-center bg-slate-900/60 p-4">
+    <div role="document" class="w-full max-w-md rounded-xl bg-white p-4 shadow-xl">
+      <p id="delete-all-modal-title" class="mb-2 text-sm font-semibold text-slate-900"><%= t('deleteAllMails') %></p>
+      <p class="mb-4 text-sm text-slate-700"><%= t('deleteAllQuestion') %></p>
+      <div class="flex justify-end gap-2">
+        <button id="delete-all-modal-cancel" type="button" class="rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-700 hover:bg-slate-50"><%= t('cancel') %></button>
+        <button id="delete-all-modal-confirm" type="submit" form="delete-all-form" class="rounded-lg bg-rose-600 px-3 py-2 text-sm text-white hover:bg-rose-700"><%= t('deleteAllMails') %></button>
+      </div>
+    </div>
+  </div>
   <script>
     (() => {
       let lastState = { count: <%= mails.length %>, latestId: <%- JSON.stringify(mails[0]?.id || null) %> };
       let pendingLinkUrl = '';
       let linkModalPreviousFocus = null;
+      let deleteAllModalPreviousFocus = null;
       const forms = document.querySelectorAll('form[method="get"][action="/"]');
       const linkModalBackdrop = document.getElementById('link-modal-backdrop');
       const linkModalUrl = document.getElementById('link-modal-url');
       const linkModalOpen = document.getElementById('link-modal-open');
       const linkModalCancel = document.getElementById('link-modal-cancel');
+      const deleteAllButton = document.getElementById('delete-all-button');
+      const deleteAllModalBackdrop = document.getElementById('delete-all-modal-backdrop');
+      const deleteAllModalCancel = document.getElementById('delete-all-modal-cancel');
+      const deleteAllModalConfirm = document.getElementById('delete-all-modal-confirm');
 
       function closeLinkModal() {
         pendingLinkUrl = '';
@@ -244,6 +263,24 @@
         linkModalBackdrop?.classList.remove('hidden');
         linkModalBackdrop?.classList.add('flex');
         linkModalOpen?.focus();
+      }
+
+      function closeDeleteAllModal() {
+        deleteAllModalBackdrop?.setAttribute('aria-hidden', 'true');
+        deleteAllModalBackdrop?.classList.remove('flex');
+        deleteAllModalBackdrop?.classList.add('hidden');
+        if (deleteAllModalPreviousFocus && typeof deleteAllModalPreviousFocus.focus === 'function') {
+          deleteAllModalPreviousFocus.focus();
+        }
+        deleteAllModalPreviousFocus = null;
+      }
+
+      function openDeleteAllModal() {
+        deleteAllModalPreviousFocus = document.activeElement;
+        deleteAllModalBackdrop?.setAttribute('aria-hidden', 'false');
+        deleteAllModalBackdrop?.classList.remove('hidden');
+        deleteAllModalBackdrop?.classList.add('flex');
+        deleteAllModalConfirm?.focus();
       }
 
       function handleMailLinkClick(event) {
@@ -293,6 +330,33 @@
           if (!pendingLinkUrl) return;
 
           const focusable = [linkModalCancel, linkModalOpen].filter(Boolean);
+          if (!focusable.length) return;
+          const currentIndex = focusable.indexOf(document.activeElement);
+          const step = event.shiftKey ? -1 : 1;
+          const nextIndex = currentIndex < 0
+            ? 0
+            : (currentIndex + step + focusable.length) % focusable.length;
+          event.preventDefault();
+          focusable[nextIndex].focus();
+        });
+      }
+
+      if (deleteAllButton && deleteAllModalBackdrop && deleteAllModalCancel && deleteAllModalConfirm) {
+        deleteAllButton.addEventListener('click', openDeleteAllModal);
+        deleteAllModalCancel.addEventListener('click', closeDeleteAllModal);
+        deleteAllModalBackdrop.addEventListener('click', (event) => {
+          if (event.target === deleteAllModalBackdrop) closeDeleteAllModal();
+        });
+        deleteAllModalBackdrop.addEventListener('keydown', (event) => {
+          if (event.key === 'Escape') {
+            event.preventDefault();
+            closeDeleteAllModal();
+            return;
+          }
+
+          if (event.key !== 'Tab' || deleteAllModalBackdrop.getAttribute('aria-hidden') === 'true') return;
+
+          const focusable = [deleteAllModalCancel, deleteAllModalConfirm].filter(Boolean);
           if (!focusable.length) return;
           const currentIndex = focusable.indexOf(document.activeElement);
           const step = event.shiftKey ? -1 : 1;

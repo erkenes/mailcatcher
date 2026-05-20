@@ -36,6 +36,8 @@
   "phone": "Handy",
   "downloadMail": "Mail herunterladen",
   "deleteMail": "Mail löschen",
+  "deleteAllMails": "Alle Mails löschen",
+  "deleteAllQuestion": "Möchtest du wirklich alle Mails löschen?",
   "openLinkQuestion": "Möchtest du diesen Link öffnen?",
   "open": "Öffnen",
   "cancel": "Abbrechen",

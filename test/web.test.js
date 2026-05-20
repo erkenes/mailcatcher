@@ -15,8 +15,13 @@ function createStore(mails = []) {
     loadFromDisk() {
       return 0;
     },
-    deleteMail() {
-      return undefined;
+    deleteMail(id) {
+      const index = mails.findIndex((mail) => mail.id === id);
+      if (index === -1) {
+        return false;
+      }
+      mails.splice(index, 1);
+      return true;
     }
   };
 }
@@ -25,16 +30,22 @@ function escapeRegex(value) {
   return String(value).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
-async function fetchHtml(path, headers = {}, mails = []) {
+async function withServer(mails, callback) {
   const app = createWebApp(createStore(mails), 7);
   const server = app.listen(0);
   try {
     const { port } = server.address();
-    const response = await fetch(`http://127.0.0.1:${port}${path}`, { headers });
-    return response.text();
+    return await callback(`http://127.0.0.1:${port}`);
   } finally {
     await new Promise((resolve) => server.close(resolve));
   }
+}
+
+async function fetchHtml(path, headers = {}, mails = []) {
+  return withServer(mails, async (baseUrl) => {
+    const response = await fetch(`${baseUrl}${path}`, { headers });
+    return response.text();
+  });
 }
 
 test('auto language uses browser language', async () => {
@@ -118,4 +129,62 @@ test('mail detail is rendered from template with attachment and html toggle', as
   assert.match(html, /id="link-modal-open"/);
   assert.match(html, /id="link-modal-cancel"/);
   assert.match(html, /Do you want to open this link\?/);
+  assert.match(html, /id="delete-all-button"/);
+  assert.match(html, /id="delete-all-modal-backdrop"/);
+  assert.match(html, /id="delete-all-modal-title"/);
+  assert.match(html, /id="delete-all-modal-cancel"/);
+  assert.match(html, /id="delete-all-modal-confirm"/);
+  assert.match(html, /Delete all emails/);
+  assert.match(html, /Do you really want to delete all emails\?/);
+});
+
+test('delete-all endpoint removes all mails and redirects to index', async () => {
+  const mails = [
+    {
+      id: 'mail-1',
+      subject: 'First mail',
+      to: 'one@example.com',
+      cc: '',
+      bcc: '',
+      from: 'sender@example.com',
+      text: 'One',
+      html: '',
+      receivedAt: '2026-01-01T10:00:00.000Z',
+      attachmentCount: 0,
+      attachments: [],
+      headers: []
+    },
+    {
+      id: 'mail-2',
+      subject: 'Second mail',
+      to: 'two@example.com',
+      cc: '',
+      bcc: '',
+      from: 'sender@example.com',
+      text: 'Two',
+      html: '',
+      receivedAt: '2026-01-01T11:00:00.000Z',
+      attachmentCount: 0,
+      attachments: [],
+      headers: []
+    }
+  ];
+
+  await withServer(mails, async (baseUrl) => {
+    const pageResponse = await fetch(`${baseUrl}/?lang=en`);
+    const pageHtml = await pageResponse.text();
+    const csrfToken = pageHtml.match(/name="csrf" value="([^"]+)"/)?.[1];
+    assert.ok(csrfToken, 'CSRF token should be present in page');
+
+    const response = await fetch(`${baseUrl}/mail/delete-all?lang=en`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams({ csrf: csrfToken }).toString(),
+      redirect: 'manual'
+    });
+
+    assert.equal(response.status, 302);
+    assert.equal(response.headers.get('location'), '/?lang=en');
+    assert.equal(mails.length, 0);
+  });
 });
