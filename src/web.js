@@ -273,6 +273,21 @@ function createWebApp(
     res.redirect(`/?lang=${encodeURIComponent(language)}`);
   });
 
+  app.post('/mail/delete-all', (req, res) => {
+    const locale = requestLocale(req);
+    const t = (key) => translate(locale, key);
+    if (!isValidCsrfToken(req.body.csrf, csrfToken)) {
+      res.status(403).type('text').send(t('invalidCsrfToken'));
+      return;
+    }
+    const mails = [...store.listMails()];
+    for (const mail of mails) {
+      store.deleteMail(mail.id);
+    }
+    const language = normalizeLanguage(req.query.lang);
+    res.redirect(`/?lang=${encodeURIComponent(language)}`);
+  });
+
   app.get('/mail/:id/download', (req, res) => {
     const locale = requestLocale(req);
     const t = (key) => translate(locale, key);

@@ -36,6 +36,8 @@
   "phone": "Phone",
   "downloadMail": "Download email",
   "deleteMail": "Delete email",
+  "deleteAllMails": "Delete all emails",
+  "deleteAllQuestion": "Do you really want to delete all emails?",
   "openLinkQuestion": "Do you want to open this link?",
   "open": "Open",
   "cancel": "Cancel",
