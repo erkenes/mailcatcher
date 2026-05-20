@@ -1,6 +1,6 @@
 {
   "name": "@erkenes/mailcatcher",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "Node.js mailcatcher with a modern, simple web UI",
   "main": "src/index.js",
   "type": "commonjs",
