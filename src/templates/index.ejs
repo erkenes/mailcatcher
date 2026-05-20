@@ -4,7 +4,77 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title><%= pageTitle %></title>
+  <script>
+    (() => {
+      try {
+        const setting = localStorage.getItem('mailcatcher-theme') || 'auto';
+        const systemDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+        const resolved = setting === 'dark' || (setting === 'auto' && systemDark) ? 'dark' : 'light';
+        document.documentElement.dataset.theme = resolved;
+      } catch (_error) {
+        document.documentElement.dataset.theme = 'light';
+      }
+    })();
+  </script>
   <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    html[data-theme="dark"] {
+      color-scheme: dark;
+    }
+    html[data-theme="dark"] body {
+      background: #020617 !important;
+      color: #e2e8f0 !important;
+    }
+    html[data-theme="dark"] .bg-white,
+    html[data-theme="dark"] .bg-slate-50,
+    html[data-theme="dark"] .bg-slate-100 {
+      background-color: #0f172a !important;
+    }
+    html[data-theme="dark"] .border-slate-200,
+    html[data-theme="dark"] .border-slate-300 {
+      border-color: #334155 !important;
+    }
+    html[data-theme="dark"] .text-slate-900,
+    html[data-theme="dark"] .text-slate-800,
+    html[data-theme="dark"] .text-slate-700,
+    html[data-theme="dark"] .text-slate-600,
+    html[data-theme="dark"] .text-slate-500 {
+      color: #cbd5e1 !important;
+    }
+    html[data-theme="dark"] .text-indigo-600 {
+      color: #a5b4fc !important;
+    }
+    html[data-theme="dark"] .bg-indigo-50 {
+      background-color: #312e81 !important;
+    }
+    html[data-theme="dark"] .border-indigo-200 {
+      border-color: #6366f1 !important;
+    }
+    html[data-theme="dark"] .bg-amber-50 {
+      background-color: #422006 !important;
+    }
+    html[data-theme="dark"] .border-amber-200 {
+      border-color: #a16207 !important;
+    }
+    html[data-theme="dark"] .text-amber-800 {
+      color: #fde68a !important;
+    }
+    html[data-theme="dark"] .rounded-lg.border,
+    html[data-theme="dark"] select,
+    html[data-theme="dark"] button {
+      background-color: #1e293b !important;
+      border-color: #475569 !important;
+      color: #e2e8f0 !important;
+    }
+    html[data-theme="dark"] pre {
+      background-color: #111827 !important;
+      color: #e2e8f0 !important;
+    }
+    html[data-theme="dark"] iframe.mail-html-frame {
+      border-color: #334155 !important;
+      background-color: #111827 !important;
+    }
+  </style>
 </head>
 <body class="bg-slate-100 text-slate-900">
   <div class="mx-auto flex h-screen max-w-[1600px] flex-col p-4">
@@ -202,8 +272,18 @@
         </div>
       </main>
     </div>
-    <footer class="mt-4 flex flex-wrap items-center justify-center gap-x-6 gap-y-2 border-t border-slate-200 pt-3 text-xs text-slate-600">
-      <span>Version: <%= appVersion %></span>
+    <footer class="mt-4 flex flex-wrap items-center justify-between gap-x-6 gap-y-2 border-t border-slate-200 pt-3 text-xs text-slate-600">
+      <div class="flex flex-wrap items-center gap-2">
+        <span>Version: <%= appVersion %></span>
+        <label class="flex items-center gap-2">
+          <span><%= t('themeLabel') %></span>
+          <select id="theme-select" class="rounded-lg border border-slate-300 px-2 py-1">
+            <option value="auto"><%= t('themeAutoSystem') %></option>
+            <option value="dark"><%= t('themeDark') %></option>
+            <option value="light"><%= t('themeLight') %></option>
+          </select>
+        </label>
+      </div>
       <span>Copyright ©  <a class="text-indigo-600 hover:underline" href="<%= projectRepositoryUrl %>" target="_blank" rel="noopener noreferrer"><%= projectName %></a></span>
     </footer>
   </div>
@@ -234,14 +314,80 @@
       let linkModalPreviousFocus = null;
       let deleteAllModalPreviousFocus = null;
       const forms = document.querySelectorAll('form[method="get"][action="/"]');
+      const themeSelect = document.getElementById('theme-select');
       const linkModalBackdrop = document.getElementById('link-modal-backdrop');
       const linkModalUrl = document.getElementById('link-modal-url');
       const linkModalOpen = document.getElementById('link-modal-open');
       const linkModalCancel = document.getElementById('link-modal-cancel');
+      const themeStorageKey = 'mailcatcher-theme';
+      const languageStorageKey = 'mailcatcher-language';
       const deleteAllButton = document.getElementById('delete-all-button');
       const deleteAllModalBackdrop = document.getElementById('delete-all-modal-backdrop');
       const deleteAllModalCancel = document.getElementById('delete-all-modal-cancel');
       const deleteAllModalConfirm = document.getElementById('delete-all-modal-confirm');
+
+      function normalizeTheme(value) {
+        return value === 'dark' || value === 'light' || value === 'auto' ? value : 'auto';
+      }
+
+      function normalizeLanguage(value) {
+        return value === 'de' || value === 'en' || value === 'auto' ? value : 'auto';
+      }
+
+      function isSystemDark() {
+        return window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+      }
+
+      function applyThemeSetting(themeSetting) {
+        const setting = normalizeTheme(themeSetting);
+        const resolvedTheme = setting === 'dark' || (setting === 'auto' && isSystemDark())
+          ? 'dark'
+          : 'light';
+        document.documentElement.dataset.theme = resolvedTheme;
+      }
+
+      function persistLanguageSelection() {
+        const langParams = new URLSearchParams(window.location.search);
+        if (langParams.has('lang')) {
+          const selected = normalizeLanguage(langParams.get('lang'));
+          localStorage.setItem(languageStorageKey, selected);
+          return;
+        }
+
+        const stored = normalizeLanguage(localStorage.getItem(languageStorageKey));
+        if (stored === 'de' || stored === 'en') {
+          langParams.set('lang', stored);
+          const query = langParams.toString();
+          window.location.replace(query ? `/?${query}` : '/');
+        }
+      }
+
+      try {
+        persistLanguageSelection();
+      } catch (_error) {
+        // ignore localStorage access errors
+      }
+
+      try {
+        const storedTheme = normalizeTheme(localStorage.getItem(themeStorageKey));
+        applyThemeSetting(storedTheme);
+        if (themeSelect) themeSelect.value = storedTheme;
+        themeSelect?.addEventListener('change', () => {
+          const selectedTheme = normalizeTheme(themeSelect.value);
+          localStorage.setItem(themeStorageKey, selectedTheme);
+          applyThemeSetting(selectedTheme);
+        });
+
+        const prefersDarkMedia = window.matchMedia ? window.matchMedia('(prefers-color-scheme: dark)') : null;
+        if (prefersDarkMedia) {
+          prefersDarkMedia.addEventListener('change', () => {
+            const selectedTheme = normalizeTheme(localStorage.getItem(themeStorageKey));
+            if (selectedTheme === 'auto') applyThemeSetting(selectedTheme);
+          });
+        }
+      } catch (_error) {
+        // ignore localStorage access errors
+      }
 
       function closeLinkModal() {
         pendingLinkUrl = '';
@@ -376,7 +522,16 @@
       for (const form of forms) {
         const selects = form.querySelectorAll('select');
         for (const select of selects) {
-          select.addEventListener('change', () => form.submit());
+          select.addEventListener('change', () => {
+            if (select.name === 'lang') {
+              try {
+                localStorage.setItem(languageStorageKey, normalizeLanguage(select.value));
+              } catch (_error) {
+                // ignore localStorage access errors
+              }
+            }
+            form.submit();
+          });
         }
       }
 
