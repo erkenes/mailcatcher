@@ -84,9 +84,22 @@ test('footer contains version, project link and copyright', async () => {
   const versionPattern = version.replaceAll('.', '\\.');
 
   assert.match(html, new RegExp(`Version: ${versionPattern}`));
+  assert.match(html, /<select id="theme-select"/);
+  assert.match(html, /<option value="auto">Auto \(System\)<\/option>/);
+  assert.match(html, /<option value="dark">Dark<\/option>/);
+  assert.match(html, /<option value="light">Light<\/option>/);
   assert.match(html, /href="https:\/\/github\.com\/erkenes\/mailcatcher"/);
   assert.match(html, /mailcatcher/);
   assert.match(html, /Copyright ©/);
+});
+
+test('template persists language and theme preferences in localStorage', async () => {
+  const html = await fetchHtml('/');
+
+  assert.match(html, /mailcatcher-language/);
+  assert.match(html, /mailcatcher-theme/);
+  assert.match(html, /localStorage\.setItem\(languageStorageKey/);
+  assert.match(html, /localStorage\.setItem\(themeStorageKey/);
 });
 
 test('mail detail is rendered from template with attachment and html toggle', async () => {
