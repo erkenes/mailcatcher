@@ -85,6 +85,9 @@
           <% if (selectedMail) { %>
             <input type="hidden" name="mail" value="<%= selectedMail.id %>" />
           <% } %>
+          <% if (activeMailbox) { %>
+            <input type="hidden" name="to" value="<%= activeMailbox %>" />
+          <% } %>
           <input type="hidden" name="mode" value="<%= mode %>" />
           <input type="hidden" name="viewport" value="<%= viewport %>" />
           <input type="hidden" name="htmlView" value="<%= htmlView %>" />
@@ -106,11 +109,42 @@
     </header>
     <div class="grid min-h-0 flex-1 grid-cols-1 gap-4 lg:grid-cols-[340px_minmax(0,1fr)]">
       <aside class="min-h-0 overflow-y-auto rounded-2xl border border-slate-200 bg-slate-50 p-3">
+        <h2 class="mb-3 text-sm font-semibold uppercase tracking-wide text-slate-600"><%= t('mailboxSidebarTitle') %></h2>
+        <div class="mb-4 space-y-2">
+          <input
+            id="mailbox-search"
+            type="search"
+            placeholder="<%= t('searchMailboxes') %>"
+            class="w-full rounded-lg border border-slate-300 bg-white px-2 py-1 text-sm"
+          />
+          <div class="space-y-2">
+            <a
+              data-mailbox-item
+              data-mailbox-search="<%= t('allMessages').toLowerCase() %>"
+              href="<%= buildUrlWithParams({ mail: null, to: null }) %>"
+              class="flex items-center justify-between rounded-lg border px-2 py-1 text-sm transition <%= !activeMailbox ? 'border-indigo-200 bg-indigo-50' : 'border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50' %>"
+            >
+              <span><%= t('allMessages') %></span>
+              <span class="text-slate-500"><%= mailsTotalCount %></span>
+            </a>
+            <% for (const mailbox of mailboxSummaries) { %>
+              <a
+                data-mailbox-item
+                data-mailbox-search="<%= mailbox.address.toLowerCase() %>"
+                href="<%= buildUrlWithParams({ mail: null, to: mailbox.address }) %>"
+                class="flex items-center justify-between rounded-lg border px-2 py-1 text-sm transition <%= activeMailbox === mailbox.address ? 'border-indigo-200 bg-indigo-50' : 'border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50' %>"
+              >
+                <span class="truncate"><%= mailbox.address %></span>
+                <span class="text-slate-500"><%= mailbox.count %></span>
+              </a>
+            <% } %>
+          </div>
+        </div>
         <h2 class="mb-3 text-sm font-semibold uppercase tracking-wide text-slate-600"><%= t('sidebarTitle') %></h2>
         <div class="space-y-2">
           <% if (mails.length) { %>
             <% for (const mail of mails) { %>
-              <a href="/?mail=<%= encodeURIComponent(mail.id) %>&lang=<%= encodeURIComponent(selectedLanguage) %>" class="block rounded-xl border p-3 transition <%= selectedMail && selectedMail.id === mail.id ? 'border-indigo-200 bg-indigo-50' : 'border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50' %>">
+              <a href="<%= buildUrlWithParams({ mail: mail.id }) %>" class="block rounded-xl border p-3 transition <%= selectedMail && selectedMail.id === mail.id ? 'border-indigo-200 bg-indigo-50' : 'border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50' %>">
                 <div class="mb-1 flex items-start justify-between gap-2">
                   <p class="truncate text-sm font-semibold text-slate-800"><%= mail.subject || t('noSubject') %></p>
                   <% if (mail.attachmentCount > 0) { %>
@@ -132,6 +166,9 @@
             <form method="get" action="/" class="flex flex-wrap items-center gap-3">
               <% if (selectedMail) { %>
                 <input type="hidden" name="mail" value="<%= selectedMail.id %>" />
+              <% } %>
+              <% if (activeMailbox) { %>
+                <input type="hidden" name="to" value="<%= activeMailbox %>" />
               <% } %>
               <input type="hidden" name="htmlView" value="<%= htmlView %>" />
               <input type="hidden" name="lang" value="<%= selectedLanguage %>" />
@@ -325,6 +362,8 @@
       const deleteAllModalBackdrop = document.getElementById('delete-all-modal-backdrop');
       const deleteAllModalCancel = document.getElementById('delete-all-modal-cancel');
       const deleteAllModalConfirm = document.getElementById('delete-all-modal-confirm');
+      const mailboxSearchInput = document.getElementById('mailbox-search');
+      const mailboxItems = document.querySelectorAll('[data-mailbox-item]');
 
       function normalizeTheme(value) {
         return value === 'dark' || value === 'light' || value === 'auto' ? value : 'auto';
@@ -511,6 +550,16 @@
             : (currentIndex + step + focusable.length) % focusable.length;
           event.preventDefault();
           focusable[nextIndex].focus();
+        });
+      }
+
+      if (mailboxSearchInput && mailboxItems.length) {
+        mailboxSearchInput.addEventListener('input', () => {
+          const needle = mailboxSearchInput.value.trim().toLowerCase();
+          for (const item of mailboxItems) {
+            const haystack = String(item.dataset.mailboxSearch || '').toLowerCase();
+            item.classList.toggle('hidden', needle.length > 0 && !haystack.includes(needle));
+          }
         });
       }
 
