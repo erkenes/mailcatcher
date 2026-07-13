@@ -13,6 +13,6 @@
     "ejs": "^5.0.2",
     "express": "5.2.1",
     "mailparser": "3.9.12",
-    "smtp-server": "3.18.4"
+    "smtp-server": "3.19.2"
   }
 }
