@@ -71,6 +71,45 @@ function normalizeLanguage(value) {
   return value === 'de' || value === 'en' || value === 'auto' ? value : 'auto';
 }
 
+function normalizeMailbox(value) {
+  const mailbox = String(value || '').trim().toLowerCase();
+  return /^[^\s@]+@[^\s@]+$/.test(mailbox) ? mailbox : '';
+}
+
+function extractRecipientMailboxes(value) {
+  const text = String(value || '').trim();
+  if (!text) return [];
+
+  const seen = new Set();
+  const result = [];
+
+  for (const entry of text.split(',')) {
+    const trimmed = entry.trim();
+    if (!trimmed) continue;
+    const angleMatch = trimmed.match(/<([^<>]+)>/);
+    const candidate = normalizeMailbox(angleMatch ? angleMatch[1] : trimmed);
+    if (!candidate || seen.has(candidate)) continue;
+    seen.add(candidate);
+    result.push(candidate);
+  }
+
+  return result;
+}
+
+function buildMailboxSummaries(mails) {
+  const mailboxCounts = new Map();
+
+  for (const mail of mails) {
+    for (const mailbox of extractRecipientMailboxes(mail.to)) {
+      mailboxCounts.set(mailbox, (mailboxCounts.get(mailbox) || 0) + 1);
+    }
+  }
+
+  return [...mailboxCounts.entries()]
+    .map(([address, count]) => ({ address, count }))
+    .sort((a, b) => a.address.localeCompare(b.address));
+}
+
 function detectBrowserLanguage(acceptLanguageHeader) {
   const entries = String(acceptLanguageHeader || '')
     .split(',')
@@ -157,6 +196,16 @@ function createWebApp(
 
   app.get('/', (req, res) => {
     const mails = store.listMails();
+    const mailboxSummaries = buildMailboxSummaries(mails);
+    const requestedMailbox = typeof req.query.to === 'string'
+      ? normalizeMailbox(req.query.to)
+      : '';
+    const activeMailbox = mailboxSummaries.some((mailbox) => mailbox.address === requestedMailbox)
+      ? requestedMailbox
+      : '';
+    const filteredMails = activeMailbox
+      ? mails.filter((mail) => extractRecipientMailboxes(mail.to).includes(activeMailbox))
+      : mails;
     const requestedMode = typeof req.query.mode === 'string'
       ? normalizeMode(req.query.mode)
       : null;
@@ -167,8 +216,8 @@ function createWebApp(
     const t = (key) => translate(locale, key);
     const requestedMailId = typeof req.query.mail === 'string' ? req.query.mail : null;
     const selectedMailSummary = requestedMailId
-      ? mails.find((mail) => mail.id === requestedMailId)
-      : mails[0];
+      ? filteredMails.find((mail) => mail.id === requestedMailId)
+      : filteredMails[0];
     const selectedMail = selectedMailSummary ? store.getMail(selectedMailSummary.id) : null;
     const hasHtml = hasContent(selectedMail?.html);
     const hasText = hasContent(selectedMail?.text);
@@ -199,16 +248,22 @@ function createWebApp(
 
     const buildUrlWithParams = (overrides = {}) => {
       const params = new URLSearchParams();
-      const mailId = selectedMail?.id || requestedMailId;
+      const mailId = Object.prototype.hasOwnProperty.call(overrides, 'mail')
+        ? overrides.mail
+        : (selectedMail?.id || requestedMailId);
       const nextMode = overrides.mode ?? mode;
       const nextViewport = overrides.viewport ?? viewport;
       const nextHtmlView = overrides.htmlView ?? htmlView;
       const nextLanguage = overrides.lang ?? selectedLanguage;
+      const nextMailbox = Object.prototype.hasOwnProperty.call(overrides, 'to')
+        ? normalizeMailbox(overrides.to)
+        : activeMailbox;
       if (mailId) params.set('mail', mailId);
       if (nextMode) params.set('mode', nextMode);
       if (nextViewport) params.set('viewport', nextViewport);
       if (nextHtmlView) params.set('htmlView', nextHtmlView);
       if (nextLanguage) params.set('lang', nextLanguage);
+      if (nextMailbox) params.set('to', nextMailbox);
       const query = params.toString();
       return query ? `/?${query}` : '/';
     };
@@ -226,13 +281,16 @@ function createWebApp(
       htmlView,
       isDesktopViewport,
       locale,
-      mails,
+      mailboxSummaries,
+      mails: filteredMails,
+      mailsTotalCount: mails.length,
       mode,
       pageTitle,
       projectName,
       projectRepositoryUrl,
       retentionDays,
       safePollIntervalMs,
+      activeMailbox,
       selectedLanguage,
       selectedMail,
       splitPaneClass: splitPaneClassMap[viewport],

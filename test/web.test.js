@@ -151,6 +151,65 @@ test('mail detail is rendered from template with attachment and html toggle', as
   assert.match(html, /Do you really want to delete all emails\?/);
 });
 
+test('mailbox sidebar groups recipients and filters message list by selected recipient', async () => {
+  const mails = [
+    {
+      id: 'mail-1',
+      subject: 'Invoice',
+      to: 'billing@example.com',
+      cc: '',
+      bcc: '',
+      from: 'sender@example.com',
+      text: 'Billing text',
+      html: '',
+      receivedAt: '2026-01-01T10:00:00.000Z',
+      attachmentCount: 0,
+      attachments: [],
+      headers: []
+    },
+    {
+      id: 'mail-2',
+      subject: 'Support request',
+      to: 'support@example.com',
+      cc: '',
+      bcc: '',
+      from: 'sender@example.com',
+      text: 'Support text',
+      html: '',
+      receivedAt: '2026-01-01T11:00:00.000Z',
+      attachmentCount: 0,
+      attachments: [],
+      headers: []
+    },
+    {
+      id: 'mail-3',
+      subject: 'Billing reminder',
+      to: 'billing@example.com',
+      cc: '',
+      bcc: '',
+      from: 'sender@example.com',
+      text: 'Reminder text',
+      html: '',
+      receivedAt: '2026-01-01T12:00:00.000Z',
+      attachmentCount: 0,
+      attachments: [],
+      headers: []
+    }
+  ];
+
+  const allHtml = await fetchHtml('/?lang=en', {}, mails);
+  assert.match(allHtml, /Mailboxes/);
+  assert.match(allHtml, /id="mailbox-search"/);
+  assert.match(allHtml, /All messages[\s\S]*>3</);
+  assert.match(allHtml, /billing@example\.com[\s\S]*>2</);
+  assert.match(allHtml, /support@example\.com[\s\S]*>1</);
+
+  const filteredHtml = await fetchHtml('/?lang=en&to=billing@example.com', {}, mails);
+  assert.match(filteredHtml, /Invoice/);
+  assert.match(filteredHtml, /Billing reminder/);
+  assert.doesNotMatch(filteredHtml, /Support request/);
+});
+
 test('delete-all endpoint removes all mails and redirects to index', async () => {
   const mails = [
     {
